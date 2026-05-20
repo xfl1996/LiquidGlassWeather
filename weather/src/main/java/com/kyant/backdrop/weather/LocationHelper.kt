@@ -14,7 +14,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 import kotlin.coroutines.resume
 
-
 /**
  * Helper for getting device location using Android's built-in LocationManager.
  * No additional dependencies required.
@@ -38,6 +37,7 @@ object LocationHelper {
             try {
                 val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
+                // Check if any provider is available
                 val hasGps = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
                 val hasNetwork = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 
@@ -45,38 +45,22 @@ object LocationHelper {
                     return@withContext Pair(DEFAULT_LATITUDE, DEFAULT_LONGITUDE)
                 }
 
-                // Priority: GPS first
-                if (hasGps) {
-                    val lastGps = getLastKnownLocationFromProvider(locationManager, LocationManager.GPS_PROVIDER)
-                    if (lastGps != null) {
-                        val age = System.currentTimeMillis() - lastGps.time
-                        if (age < 5 * 60 * 1000) {
-                            return@withContext Pair(lastGps.latitude, lastGps.longitude)
-                        }
-                    }
-                    val freshGps = requestFreshLocationFromProvider(locationManager, LocationManager.GPS_PROVIDER, 10_000L)
-                    if (freshGps != null) {
-                        return@withContext Pair(freshGps.latitude, freshGps.longitude)
-                    }
+                // Try to get last known location first (fast)
+                val lastKnown = getLastKnownLocation(locationManager, hasGps, hasNetwork)
+                if (lastKnown != null) {
+                    return@withContext Pair(lastKnown.latitude, lastKnown.longitude)
                 }
 
-                // Fallback to Network
-                if (hasNetwork) {
-                    val lastNet = getLastKnownLocationFromProvider(locationManager, LocationManager.NETWORK_PROVIDER)
-                    if (lastNet != null) {
-                        val age = System.currentTimeMillis() - lastNet.time
-                        if (age < 10 * 60 * 1000) {
-                            return@withContext Pair(lastNet.latitude, lastNet.longitude)
-                        }
-                    }
-                    val freshNet = requestFreshLocationFromProvider(locationManager, LocationManager.NETWORK_PROVIDER, 8_000L)
-                    if (freshNet != null) {
-                        return@withContext Pair(freshNet.latitude, freshNet.longitude)
-                    }
+                // Request fresh location with timeout
+                val freshLocation = requestFreshLocation(locationManager, hasGps, hasNetwork)
+                if (freshLocation != null) {
+                    return@withContext Pair(freshLocation.latitude, freshLocation.longitude)
                 }
 
+                // Fallback
                 Pair(DEFAULT_LATITUDE, DEFAULT_LONGITUDE)
             } catch (e: Exception) {
+                e.printStackTrace()
                 Pair(DEFAULT_LATITUDE, DEFAULT_LONGITUDE)
             }
         }
@@ -84,16 +68,9 @@ object LocationHelper {
 
     /**
      * Get a human-readable location description from coordinates.
-     * Uses QWeather GeoAPI (more reliable than Android Geocoder on Chinese phones).
+     * Uses Android Geocoder to reverse geocode lat/lon to city name.
      */
-    suspend fun getLocationDescription(context: Context, lat: Double, lon: Double): String {
-        // Use QWeather reverse geocode (same API as weather data, more accurate)
-        val geoName = WeatherService.reverseGeocode(lat, lon)
-        if (!geoName.isNullOrEmpty()) {
-            return geoName
-        }
-
-        // Fallback to Android Geocoder
+    fun getLocationDescription(context: Context, lat: Double, lon: Double): String {
         return try {
             val geocoder = Geocoder(context, Locale.CHINA)
             @Suppress("DEPRECATION")
@@ -102,11 +79,20 @@ object LocationHelper {
                 val addr = addresses[0]
                 val city = addr.locality ?: ""
                 val district = addr.subLocality ?: ""
+                val subAdmin = addr.subAdminArea ?: ""
                 val admin = addr.adminArea ?: ""
 
+                // Deduplicate: if district contains city or vice versa, show the more specific one
                 when {
                     district.isNotEmpty() && city.isNotEmpty() && district == city -> district
                     district.isNotEmpty() && city.isNotEmpty() && district.contains(city.removeSuffix("市")) -> district
+                    city.isNotEmpty() && district.isNotEmpty() && city.contains(district.removeSuffix("区")) -> city
+                    district.isNotEmpty() && admin.isNotEmpty() && district == admin -> district
+                    district.isNotEmpty() && city.isNotEmpty() && !city.contains("市") -> "$city$district"
+                    district.isNotEmpty() && city.isNotEmpty() -> {
+                        val cityBase = city.removeSuffix("市")
+                        if (district.contains(cityBase)) district else "$city$district"
+                    }
                     city.isNotEmpty() -> city
                     district.isNotEmpty() -> district
                     admin.isNotEmpty() -> admin
@@ -116,29 +102,39 @@ object LocationHelper {
                 String.format(Locale.US, "%.2f°N, %.2f°E", lat, lon)
             }
         } catch (e: Exception) {
+            e.printStackTrace()
             String.format(Locale.US, "%.2f°N, %.2f°E", lat, lon)
         }
     }
 
     @SuppressLint("MissingPermission")
-    private fun getLastKnownLocationFromProvider(
+    private fun getLastKnownLocation(
         locationManager: LocationManager,
-        provider: String
+        hasGps: Boolean,
+        hasNetwork: Boolean
     ): Location? {
-        return try {
-            locationManager.getLastKnownLocation(provider)
+        try {
+            if (hasNetwork) {
+                val loc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                if (loc != null) return loc
+            }
+            if (hasGps) {
+                val loc = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                if (loc != null) return loc
+            }
         } catch (e: SecurityException) {
-            null
+            // Permission not granted
         }
+        return null
     }
 
     @SuppressLint("MissingPermission")
-    private suspend fun requestFreshLocationFromProvider(
+    private suspend fun requestFreshLocation(
         locationManager: LocationManager,
-        provider: String,
-        timeoutMs: Long
+        hasGps: Boolean,
+        hasNetwork: Boolean
     ): Location? {
-        return withTimeoutOrNull(timeoutMs) {
+        return withTimeoutOrNull(10_000L) {
             suspendCancellableCoroutine { cont ->
                 val listener = object : LocationListener {
                     override fun onLocationChanged(loc: Location) {
@@ -152,6 +148,11 @@ object LocationHelper {
                 }
 
                 try {
+                    val provider = when {
+                        hasNetwork -> LocationManager.NETWORK_PROVIDER
+                        hasGps -> LocationManager.GPS_PROVIDER
+                        else -> return@suspendCancellableCoroutine
+                    }
                     locationManager.requestLocationUpdates(provider, 0L, 0f, listener)
                 } catch (e: SecurityException) {
                     if (cont.isActive) cont.resume(null)
