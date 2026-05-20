@@ -12,6 +12,7 @@ import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
 
+
 /**
  * Fetches weather data from QWeather (和风天气) v7 API.
  *
@@ -95,7 +96,8 @@ object WeatherService {
         val location = "$longitude,$latitude"
         val json = fetchApi("/v7/weather/now", "location" to location) ?: return null
         val now = json.optJSONObject("now") ?: return null
-        return WeatherNow.fromJsonObject(now)
+        val result = WeatherNow.fromJsonObject(now)
+        return result
     }
 
     /**
@@ -141,6 +143,51 @@ object WeatherService {
         val json = fetchApi("/v7/air/now", "location" to location) ?: return null
         val now = json.optJSONObject("now") ?: return null
         return AqiData.fromJsonObject(now)
+    }
+
+    /**
+     * Reverse geocode: lat/lon → city name using QWeather GeoAPI.
+     * More reliable than Android Geocoder on Chinese phones.
+     * Returns readable name like "高密市" or null.
+     */
+    suspend fun reverseGeocode(
+        latitude: Double,
+        longitude: Double
+    ): String? {
+        val location = "$longitude,$latitude"
+        val json = fetchApi("/geo/v2/city/lookup", "location" to location, "number" to "1")
+            ?: return null
+        val locations = json.optJSONArray("location") ?: return null
+        if (locations.length() == 0) {
+            return null
+        }
+        val first = locations.getJSONObject(0)
+
+        // Safety: skip if not in China
+        val country = first.optString("adm0", "")
+        if (country.isNotEmpty() && country != "中国") {
+            return null
+        }
+
+        val name = first.optString("name", "")
+        val adm2 = first.optString("adm2", "") // Parent city (e.g. 潍坊市)
+        val adm1 = first.optString("adm1", "") // Province (e.g. 山东省)
+
+        // Build readable name:
+        // If adm2 (parent city) differs from name, show both
+        // e.g. "高密市" (adm2=潍坊市) → "潍坊高密"
+        // e.g. "东城区" (adm2=北京市) → "北京东城"
+        if (name.isNotEmpty() && adm2.isNotEmpty()) {
+            val nameBase = name.removeSuffix("市").removeSuffix("区").removeSuffix("县")
+            val adm2Base = adm2.removeSuffix("市").removeSuffix("地区")
+            if (nameBase == adm2Base) {
+                // Same level, just show name
+                return name
+            }
+            val combined = "$adm2Base$nameBase"
+            return combined
+        }
+        return name.ifEmpty { null }
     }
 
     /**

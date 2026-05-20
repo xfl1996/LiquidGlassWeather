@@ -136,21 +136,6 @@ private fun WeatherMainScreen(
     var searchResults by remember { mutableStateOf<List<CityResult>>(emptyList()) }
     var isSearchingCity by remember { mutableStateOf(false) }
 
-    // On start: load from cache only (no GPS). If no cache, show empty state.
-    LaunchedEffect(Unit) {
-        isLoading = true
-        errorMessage = null
-        val result = WeatherRepository.loadCachedOnly(context)
-        if (result != null) {
-            weather = result
-            isLoading = false
-        } else {
-            // No cached data — show placeholder, don't locate
-            isLoading = false
-            weather = null
-        }
-    }
-
     fun refresh() {
         scope.launch {
             isLoading = true
@@ -161,6 +146,33 @@ private fun WeatherMainScreen(
                 onFailure = { e -> errorMessage = e.message ?: "未知错误"; isLoading = false }
             )
         }
+    }
+
+    // On start: load from cache only (no GPS). If no cache, auto-trigger location fetch.
+    LaunchedEffect(Unit) {
+        // 1. Show cached data instantly for fast startup (no loading spinner)
+        val cached = WeatherRepository.loadCachedOnly(context)
+        if (cached != null) {
+            weather = cached
+            isLoading = false
+        }
+
+        // 2. Silently do a GPS refresh in the background
+        //    If GPS succeeds → replace with fresh data (user sees it update)
+        //    If GPS fails → keep cached data (graceful fallback)
+        val result = WeatherRepository.fetchAllWeather(context, forceRefresh = true)
+        result.fold(
+            onSuccess = {
+                weather = it  // Silently update — no loading spinner
+            },
+            onFailure = { e ->
+                if (weather == null) {
+                    errorMessage = e.message ?: "定位失败，请检查权限和GPS设置"
+                    isLoading = false
+                }
+                // If cached data exists, silently keep it (no error shown)
+            }
+        )
     }
 
     fun fetchCityWeather(city: CityResult) {

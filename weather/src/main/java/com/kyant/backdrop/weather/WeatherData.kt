@@ -10,6 +10,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 
+
 /**
  * Weather data layer.
  * Fetches real weather data from QWeather API with local same-day caching.
@@ -293,11 +294,13 @@ object WeatherRepository {
         val cachedDate = prefs.getString(KEY_CACHE_DATE, null)
         val cachedJson = prefs.getString(KEY_CACHE_JSON, null)
         if (cachedDate == todayString() && !cachedJson.isNullOrEmpty()) {
-            return WeatherResult.fromJson(cachedJson)
+            val result = WeatherResult.fromJson(cachedJson)
+            return result
         }
         // If no same-day cache, try any cached data (stale is better than nothing)
         if (!cachedJson.isNullOrEmpty()) {
-            return WeatherResult.fromJson(cachedJson)
+            val result = WeatherResult.fromJson(cachedJson)
+            return result
         }
         return null
     }
