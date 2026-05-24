@@ -1,6 +1,6 @@
 # Liquid Glass Weather
 
-基于 [kyant/backdrop](https://github.com/nickx2n/kyant-backdrop) 液态玻璃效果库的 Android 天气应用。
+基于 [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) 液态玻璃效果库的 Android 天气应用。
 
 ## 特性
 
@@ -15,7 +15,7 @@
 ## 技术栈
 
 - Kotlin + Jetpack Compose
-- [kyant/backdrop](https://github.com/nickx2n/kyant-backdrop) — 液态玻璃效果库
+- [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) — 液态玻璃效果库
 - 和风天气 API（天气 + GeoAPI 反向地理编码）
 - 零第三方网络库（纯 HttpURLConnection + org.json）
 - Android Canvas — 小组件毛玻璃渲染
