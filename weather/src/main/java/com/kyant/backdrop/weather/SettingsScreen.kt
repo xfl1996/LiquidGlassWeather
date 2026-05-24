@@ -36,7 +36,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Color.Companion.White
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -86,7 +85,7 @@ fun SettingsScreen(
                     Spacer(Modifier.weight(1f))
                     BasicText(
                         "设置",
-                        style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Medium, color = White)
+                        style = appTextStyle(fontSize = 24.sp, fontWeight = FontWeight.Medium, color = White)
                     )
                     Spacer(Modifier.weight(1f))
                     // placeholder for balance
@@ -126,83 +125,64 @@ fun SettingsScreen(
 
                     GlassCard(backdrop, settings.globalParams, Modifier.padding(horizontal = 24.dp, vertical = 4.dp)) {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
-                            // Row 1: label + default badge
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Row: color dot + name + hex input + apply
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Color preview
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            try { Color(android.graphics.Color.parseColor(if (currentHex.isEmpty()) defaultHex else currentHex)) }
+                                            catch (e: Exception) { White }
+                                        )
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                // Name
                                 BasicText(
                                     displayName,
-                                    style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, color = White)
+                                    style = appTextStyle(fontSize = 13.sp, color = White),
+                                    modifier = Modifier.weight(1f)
                                 )
-                                Spacer(Modifier.width(8.dp))
-                                BasicText(
-                                    "默认 $defaultHex",
-                                    style = TextStyle(fontSize = 11.sp, color = White.copy(alpha = 0.4f))
-                                )
-                                Spacer(Modifier.weight(1f))
-                                // Reset to default
-                                if (currentHex.isNotEmpty()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(CircleShape)
-                                            .clickable {
-                                                val newMap = settings.textColorOverrides.toMutableMap()
-                                                newMap.remove(condition.name)
-                                                settings = settings.copy(textColorOverrides = newMap)
-                                                hexInput = ""
-                                                save()
-                                            }
-                                            .padding(4.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        BasicText("重置", style = TextStyle(fontSize = 11.sp, color = White.copy(alpha = 0.5f)))
-                                    }
-                                }
-                            }
-                            Spacer(Modifier.height(6.dp))
-                            // Row 2: swatch + input + apply
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                // Color preview
-                                val previewColor = try {
-                                    val c = hexInput.removePrefix("#")
-                                    if (c.length == 6) Color(android.graphics.Color.parseColor("#$c"))
-                                    else {
-                                        val dc = defaultHex.removePrefix("#")
-                                        Color(android.graphics.Color.parseColor("#$dc"))
-                                    }
-                                } catch (_: Exception) { White }
-                                Box(
-                                    Modifier
-                                        .size(28.dp)
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(previewColor)
-                                )
-                                Spacer(Modifier.width(8.dp))
                                 // Hex input
-                                androidx.compose.foundation.text.BasicTextField(
-                                    value = hexInput,
-                                    onValueChange = { v ->
-                                        val filtered = v.filter { it.isLetterOrDigit() || it == '#' }.take(7)
-                                        hexInput = filtered
-                                        val clean = filtered.removePrefix("#")
-                                        isValid = filtered.isEmpty() || (clean.length == 6 && clean.all { it in "0123456789abcdefABCDEF" })
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    textStyle = TextStyle(fontSize = 14.sp, color = White),
-                                    singleLine = true,
-                                    decorationBox = { inner ->
-                                        Box(
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(Color.White.copy(alpha = 0.1f))
-                                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                                        ) {
-                                            if (hexInput.isEmpty()) {
-                                                BasicText(defaultHex, style = TextStyle(fontSize = 14.sp, color = White.copy(alpha = 0.3f)))
+                                Box(
+                                    modifier = Modifier
+                                        .width(100.dp)
+                                        .height(32.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.White.copy(alpha = 0.1f))
+                                        .padding(horizontal = 8.dp),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    androidx.compose.foundation.text.BasicTextField(
+                                        value = hexInput,
+                                        onValueChange = { newHex ->
+                                            hexInput = newHex
+                                            val cleanHex = if (newHex.startsWith("#")) newHex else "#$newHex"
+                                            isValid = try {
+                                                android.graphics.Color.parseColor(cleanHex)
+                                                true
+                                            } catch (e: Exception) { false }
+                                        },
+                                        textStyle = appTextStyle(
+                                            fontSize = 12.sp,
+                                            color = White
+                                        ),
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        decorationBox = { inner ->
+                                            Box {
+                                                if (hexInput.isEmpty()) {
+                                                    BasicText(defaultHex, style = appTextStyle(fontSize = 14.sp, color = White.copy(alpha = 0.3f)))
+                                                }
+                                                inner()
                                             }
-                                            inner()
                                         }
-                                    }
-                                )
+                                    )
+                                }
                                 // Apply
                                 if (isValid && hexInput.isNotEmpty() && hexInput != currentHex) {
                                     Spacer(Modifier.width(6.dp))
@@ -220,7 +200,7 @@ fun SettingsScreen(
                                             .padding(horizontal = 8.dp, vertical = 6.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        BasicText("✓", style = TextStyle(fontSize = 14.sp, color = White))
+                                        BasicText("✓", style = appTextStyle(fontSize = 14.sp, color = White))
                                     }
                                 }
                             }
@@ -266,7 +246,7 @@ fun SettingsScreen(
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                BasicText("▲", style = TextStyle(
+                                BasicText("▲", style = appTextStyle(
                                     fontSize = 12.sp,
                                     color = if (index > 0) White else White.copy(alpha = 0.3f)
                                 ))
@@ -292,7 +272,7 @@ fun SettingsScreen(
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                BasicText("▼", style = TextStyle(
+                                BasicText("▼", style = appTextStyle(
                                     fontSize = 12.sp,
                                     color = if (index < settings.order.size - 1) White else White.copy(alpha = 0.3f)
                                 ))
@@ -301,7 +281,7 @@ fun SettingsScreen(
                             // Title
                             BasicText(
                                 title,
-                                style = TextStyle(
+                                style = appTextStyle(
                                     fontSize = 14.sp,
                                     color = if (isHidden) White.copy(alpha = 0.3f) else White,
                                     fontWeight = FontWeight.Medium
@@ -327,9 +307,9 @@ fun SettingsScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (isHidden) {
-                                    BasicText("✕", style = TextStyle(fontSize = 14.sp, color = Color(0xFFEF4444)))
+                                    BasicText("✕", style = appTextStyle(fontSize = 14.sp, color = Color(0xFFEF4444)))
                                 } else {
-                                    BasicText("✓", style = TextStyle(fontSize = 14.sp, color = Color(0xFF4ADE80)))
+                                    BasicText("✓", style = appTextStyle(fontSize = 14.sp, color = Color(0xFF4ADE80)))
                                 }
                             }
 
@@ -345,7 +325,7 @@ fun SettingsScreen(
                             ) {
                                 BasicText(
                                     if (expanded) "▼" else "▶",
-                                    style = TextStyle(fontSize = 11.sp, color = White.copy(alpha = 0.5f))
+                                    style = appTextStyle(fontSize = 11.sp, color = White.copy(alpha = 0.5f))
                                 )
                             }
                         }
@@ -411,13 +391,13 @@ fun SettingsScreen(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         if (!isUsingGlobal) {
-                                            BasicText("✓", style = TextStyle(fontSize = 11.sp, color = White))
+                                            BasicText("✓", style = appTextStyle(fontSize = 11.sp, color = White))
                                         }
                                     }
                                     Spacer(Modifier.width(8.dp))
                                     BasicText(
                                         "使用全局参数",
-                                        style = TextStyle(fontSize = 12.sp, color = White.copy(alpha = 0.7f))
+                                        style = appTextStyle(fontSize = 12.sp, color = White.copy(alpha = 0.7f))
                                     )
                                 }
 
@@ -458,7 +438,7 @@ private fun SectionTitle(text: String, backdrop: LayerBackdrop) {
     GlassCard(backdrop, GlassParams(blur = 0f, corner = 0f), Modifier.padding(horizontal = 24.dp)) {
         BasicText(
             text,
-            style = TextStyle(
+            style = appTextStyle(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 color = White.copy(alpha = 0.8f)
@@ -512,7 +492,7 @@ private fun ParamSlider(
     ) {
         BasicText(
             label,
-            style = TextStyle(fontSize = 11.sp, color = White.copy(alpha = 0.6f)),
+            style = appTextStyle(fontSize = 11.sp, color = White.copy(alpha = 0.6f)),
             modifier = Modifier.width(56.dp)
         )
         Box(
@@ -554,7 +534,7 @@ private fun ParamSlider(
         }
         BasicText(
             "${value.roundToInt()}",
-            style = TextStyle(fontSize = 11.sp, color = White.copy(alpha = 0.5f)),
+            style = appTextStyle(fontSize = 11.sp, color = White.copy(alpha = 0.5f)),
             modifier = Modifier.width(32.dp)
         )
     }

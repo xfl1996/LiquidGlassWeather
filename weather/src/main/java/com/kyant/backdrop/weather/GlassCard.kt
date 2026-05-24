@@ -26,7 +26,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Color.Companion.White
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,7 +43,7 @@ data class GlassParams(
     val refH: Float = 17f,
     val refA: Float = 128f,
     val corner: Float = 43f,
-    val cardAlpha: Float = 100f  // 0 = fully transparent, 100 = default glass effect
+    val cardAlpha: Float = 100f
 )
 
 @Composable
@@ -72,10 +71,8 @@ fun GlassCard(
                 },
                 highlight = { Highlight.Plain }
             )
-            // Color depth overlay: darker = more opaque overlay
             .drawBehind {
                 if (cardAlpha < 1f) {
-                    // When alpha < 100, draw a lighter overlay to reduce the glass darkening effect
                     val overlayAlpha = 1f - cardAlpha
                     drawRoundRect(
                         color = Color.White.copy(alpha = overlayAlpha * 0.3f),
@@ -90,7 +87,7 @@ fun GlassCard(
             if (title != null) {
                 BasicText(
                     title,
-                    style = TextStyle(
+                    style = appTextStyle(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         color = White.copy(alpha = 0.8f)
@@ -119,7 +116,7 @@ fun GlassButton(
     ) {
         BasicText(
             text,
-            style = TextStyle(
+            style = appTextStyle(
                 fontSize = 14.sp,
                 color = White
             )

@@ -41,7 +41,7 @@ import androidx.compose.ui.graphics.Color.Companion.White
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,6 +54,9 @@ fun WeatherScreen() {
     val context = LocalContext.current
     val backdrop = rememberLayerBackdrop()
     val settingsManager = remember { CardSettingsManager(context) }
+
+    val appFontFamily = rememberAppFontFamily()
+    CompositionLocalProvider(LocalAppFontFamily provides appFontFamily) {
 
     var currentPage by remember { mutableStateOf("weather") }
     var cardSettings by remember { mutableStateOf(settingsManager.load()) }
@@ -111,6 +114,7 @@ fun WeatherScreen() {
                 )
             }
         }
+    }
     }
 }
 
@@ -242,7 +246,7 @@ private fun WeatherMainScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     GlassCard(backdrop, GlassParams(), Modifier.padding(horizontal = 32.dp)) {
-                        BasicText("加载中...", style = TextStyle(fontSize = 18.sp, color = textColor))
+                        BasicText("加载中...", style = appTextStyle(fontSize = 18.sp, color = textColor))
                     }
                 }
             }
@@ -253,7 +257,7 @@ private fun WeatherMainScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     GlassCard(backdrop, GlassParams(), Modifier.padding(horizontal = 32.dp)) {
-                        BasicText(errorMessage ?: "未知错误", style = TextStyle(fontSize = 16.sp, color = textColor))
+                        BasicText(errorMessage ?: "未知错误", style = appTextStyle(fontSize = 16.sp, color = textColor))
                         Spacer(Modifier.height(16.dp))
                         GlassButton("重试", onClick = { refresh() })
                     }
@@ -303,14 +307,14 @@ private fun WeatherMainScreen(
                                                 }
                                             },
                                             modifier = Modifier.weight(1f),
-                                            textStyle = TextStyle(fontSize = 16.sp, color = textColor),
+                                            textStyle = appTextStyle(fontSize = 16.sp, color = textColor),
                                             singleLine = true,
                                             decorationBox = { inner ->
                                                 Box {
                                                     if (searchQuery.isEmpty()) {
                                                         BasicText(
                                                             "搜索城市...",
-                                                            style = TextStyle(fontSize = 16.sp, color = textColor.copy(alpha = 0.5f))
+                                                            style = appTextStyle(fontSize = 16.sp, color = textColor.copy(alpha = 0.5f))
                                                         )
                                                     }
                                                     inner()
@@ -320,7 +324,7 @@ private fun WeatherMainScreen(
                                         // X button to cancel
                                         BasicText(
                                             "✕",
-                                            style = TextStyle(fontSize = 18.sp, color = textColor.copy(alpha = 0.7f)),
+                                            style = appTextStyle(fontSize = 18.sp, color = textColor.copy(alpha = 0.7f)),
                                             modifier = Modifier
                                                 .padding(start = 8.dp)
                                                 .clickable {
@@ -334,7 +338,7 @@ private fun WeatherMainScreen(
                                     // ═══ Normal mode: city name + 3 icons ═══
                                     BasicText(
                                         data.cityName,
-                                        style = TextStyle(
+                                        style = appTextStyle(
                                             fontSize = 28.sp,
                                             fontWeight = FontWeight.Medium,
                                             color = textColor
@@ -349,7 +353,7 @@ private fun WeatherMainScreen(
                                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
                                         if (isSearchingCity) {
-                                            BasicText("⏳", style = TextStyle(fontSize = 14.sp))
+                                            BasicText("⏳", style = appTextStyle(fontSize = 14.sp))
                                         }
                                         // Search
                                         Image(
@@ -401,11 +405,11 @@ private fun WeatherMainScreen(
                                             Column {
                                                 BasicText(
                                                     city.name,
-                                                    style = TextStyle(fontSize = 15.sp, color = textColor)
+                                                    style = appTextStyle(fontSize = 15.sp, color = textColor)
                                                 )
                                                 BasicText(
                                                     "${city.adminArea}, ${city.country}",
-                                                    style = TextStyle(fontSize = 11.sp, color = textColor.copy(alpha = 0.5f))
+                                                    style = appTextStyle(fontSize = 11.sp, color = textColor.copy(alpha = 0.5f))
                                                 )
                                             }
                                         }
@@ -415,7 +419,7 @@ private fun WeatherMainScreen(
                                 Spacer(Modifier.height(8.dp))
                                 BasicText(
                                     "未找到匹配的城市",
-                                    style = TextStyle(fontSize = 13.sp, color = textColor.copy(alpha = 0.5f))
+                                    style = appTextStyle(fontSize = 13.sp, color = textColor.copy(alpha = 0.5f))
                                 )
                             }
 
@@ -423,7 +427,7 @@ private fun WeatherMainScreen(
 
                             BasicText(
                                 "${data.currentTemp}°",
-                                style = TextStyle(
+                                style = appTextStyle(
                                     fontSize = 80.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = textColor
@@ -441,13 +445,13 @@ private fun WeatherMainScreen(
                                 Spacer(Modifier.width(8.dp))
                                 BasicText(
                                     data.weatherDescription,
-                                    style = TextStyle(fontSize = 18.sp, color = textColor)
+                                    style = appTextStyle(fontSize = 18.sp, color = textColor)
                                 )
                             }
 
                             BasicText(
                                 "体感 ${data.feelsLike}°",
-                                style = TextStyle(fontSize = 14.sp, color = textColor.copy(alpha = 0.7f))
+                                style = appTextStyle(fontSize = 14.sp, color = textColor.copy(alpha = 0.7f))
                             )
 
                             Spacer(Modifier.height(24.dp))
@@ -509,7 +513,7 @@ private fun HourlyCard(
                 ) {
                     BasicText(
                         h.displayTime,
-                        style = TextStyle(fontSize = 12.sp, color = textColor.copy(alpha = 0.7f)),
+                        style = appTextStyle(fontSize = 12.sp, color = textColor.copy(alpha = 0.7f)),
                         maxLines = 1,
                         softWrap = false,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
@@ -519,11 +523,11 @@ private fun HourlyCard(
                     Spacer(Modifier.height(4.dp))
                     BasicText(
                         "${h.temp}°",
-                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, color = textColor)
+                        style = appTextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, color = textColor)
                     )
                     BasicText(
                         h.text,
-                        style = TextStyle(fontSize = 10.sp, color = textColor.copy(alpha = 0.6f))
+                        style = appTextStyle(fontSize = 10.sp, color = textColor.copy(alpha = 0.6f))
                     )
                 }
             }
@@ -554,24 +558,24 @@ private fun DailyCard(
                 ) {
                     BasicText(
                         d.displayDay,
-                        style = TextStyle(fontSize = 13.sp, color = textColor),
+                        style = appTextStyle(fontSize = 13.sp, color = textColor),
                         modifier = Modifier.width(50.dp)
                     )
                     WeatherIconCanvas(icon = d.iconDay, modifier = Modifier.size(20.dp), tint = textColor)
                     Spacer(Modifier.width(4.dp))
                     BasicText(
                         d.textDay,
-                        style = TextStyle(fontSize = 12.sp, color = textColor.copy(alpha = 0.7f)),
+                        style = appTextStyle(fontSize = 12.sp, color = textColor.copy(alpha = 0.7f)),
                         modifier = Modifier.weight(1f)
                     )
                     BasicText(
                         "UV ${d.uvIndex}",
-                        style = TextStyle(fontSize = 11.sp, color = textColor.copy(alpha = 0.6f)),
+                        style = appTextStyle(fontSize = 11.sp, color = textColor.copy(alpha = 0.6f)),
                         modifier = Modifier.width(40.dp)
                     )
                     BasicText(
                         "${d.tempMin}°~${d.tempMax}°",
-                        style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = textColor),
+                        style = appTextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = textColor),
                         modifier = Modifier.width(65.dp)
                     )
                 }
@@ -669,7 +673,7 @@ private fun AqiCard(
         ) {
             BasicText(
                 "${aqi.aqi}",
-                style = TextStyle(
+                style = appTextStyle(
                     fontSize = 42.sp,
                     fontWeight = FontWeight.Bold,
                     color = textColor
@@ -678,7 +682,7 @@ private fun AqiCard(
             Spacer(Modifier.height(4.dp))
             BasicText(
                 "${aqi.category} · ${aqi.primary.ifEmpty { "无首要污染物" }}",
-                style = TextStyle(fontSize = 13.sp, color = textColor.copy(alpha = 0.8f))
+                style = appTextStyle(fontSize = 13.sp, color = textColor.copy(alpha = 0.8f))
             )
             Spacer(Modifier.height(12.dp))
             Row(
@@ -737,7 +741,7 @@ private fun SunMoonCard(
 private fun SectionTitle(text: String, textColor: Color) {
     BasicText(
         text,
-        style = TextStyle(
+        style = appTextStyle(
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             color = textColor.copy(alpha = 0.8f)
@@ -751,11 +755,11 @@ private fun InfoCol(label: String, value: String, textColor: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         BasicText(
             value,
-            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, color = textColor)
+            style = appTextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, color = textColor)
         )
         BasicText(
             label,
-            style = TextStyle(fontSize = 11.sp, color = textColor.copy(alpha = 0.6f))
+            style = appTextStyle(fontSize = 11.sp, color = textColor.copy(alpha = 0.6f))
         )
     }
 }
